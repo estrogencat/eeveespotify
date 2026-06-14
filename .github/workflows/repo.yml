@@ -87,6 +87,10 @@ jobs:
             echo "nothing new to commit!"
           else
             git commit -m "repo: pushed eeveespotify update ${{ env.NEW_VERSION }} [skip ci]"
+            
+            # silently pull and rebase any new commits that happened while we were building!
+            git pull --rebase
+            
             git push
             echo "successfully updated the repo! >:3"
           fi
