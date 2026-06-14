@@ -1,4 +1,4 @@
-name: Update jailbreak repo
+name: Daily repository updater
 
 on:
   schedule:
@@ -32,7 +32,7 @@ jobs:
           name_is_regexp: true
           path: ${{ github.workspace }}/artifact-temp
 
-      - name: Repackage deb and update repository
+      - name: Repackage .deb and update repository
         run: |
           mkdir -p debians
           DEB_FILE=$(find ${{ github.workspace }}/artifact-temp -type f -name "*arm64.deb" | head -n 1)
@@ -40,18 +40,19 @@ jobs:
             DEB_FILE=$(find ${{ github.workspace }}/artifact-temp -type f -name "*.deb" | head -n 1)
           fi  
           if [ -z "$DEB_FILE" ]; then
-            echo "Couldn't find any .deb file in the downloaded artifact! Failing..."
+            echo "couldn't find any .deb file in the downloaded artifact! ;w;"
             exit 1
           fi
-          ORIGINAL_VERSION=$(dpkg-deb -f "$DEB_FILE" Version)
-          if [ -f "debians/.latest_version" ]; then
-            if [ "$ORIGINAL_VERSION" == "$(cat debians/.latest_version)" ]; then
-              echo "We already have version $ORIGINAL_VERSION! Skipping."
+          DEB_HASH=$(sha256sum "$DEB_FILE" | awk '{print $1}')
+          if [ -f "debians/.latest_hash" ]; then
+            if [ "$DEB_HASH" == "$(cat debians/.latest_hash)" ]; then
+              echo "this exact build has already been processed! skipping to avoid spam :3"
               exit 0
             fi
           fi
-          echo "New version found, packing it up..."
-          echo "$ORIGINAL_VERSION" > debians/.latest_version
+          echo "new unique build found! packing it up..."
+          echo "$DEB_HASH" > debians/.latest_hash
+          ORIGINAL_VERSION=$(dpkg-deb -f "$DEB_FILE" Version)
           mkdir -p extract
           dpkg-deb -R "$DEB_FILE" extract/
           TIMESTAMP=$(date +"%Y%m%d%H%M%S")
@@ -64,8 +65,8 @@ jobs:
           dpkg-scanpackages -m ./debians > Packages
           bzip2 -c9 Packages > Packages.bz2
           cat << 'EOF' > Release
-          Origin: Hazel's mirror repo
-          Label: Hazel's mirror repo
+          Origin: Hazel's cypwn mirror
+          Label: Hazel's cypwn mirror
           Suite: stable
           Version: 1.0
           Codename: ios
@@ -73,20 +74,19 @@ jobs:
           Components: main
           Description: meow
           EOF
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
 
-      - name: Commit and push new packages
+      - name: commit and push new packages
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          # stage all the important repo files
           git add debians/ Packages Packages.bz2 Release
           
-          # check if there are actual changes before trying to push
           if git diff --cached --quiet; then
-            echo "Nothing new to commit!"
+            echo "nothing new to commit!"
           else
-            git commit -m "repo: pushed eeveespotify update $(cat debians/.latest_version) [skip ci]"
+            git commit -m "repo: pushed eeveespotify update ${{ env.NEW_VERSION }} [skip ci]"
             git push
-            echo "Successfully updated the repo!"
+            echo "successfully updated the repo! >:3"
           fi
