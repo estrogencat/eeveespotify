@@ -1,0 +1,92 @@
+name: Update jailbreak repo
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-repo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install repository tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev bzip2
+
+      - name: Download newest tweak artifact
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          github_token: ${{ secrets.PAT }}
+          repo: jaydenjcpy/EeveeSpotifyReincarnated
+          workflow_search: true
+          workflow_conclusion: success
+          name: (com\.eevee\.spotify_.*_iphoneos-arm64\.deb|EeveeSpotify-DEBS)
+          name_is_regexp: true
+          path: ${{ github.workspace }}/artifact-temp
+
+      - name: Repackage deb and update repository
+        run: |
+          mkdir -p debians
+          DEB_FILE=$(find ${{ github.workspace }}/artifact-temp -type f -name "*arm64.deb" | head -n 1)
+          if [ -z "$DEB_FILE" ]; then
+            DEB_FILE=$(find ${{ github.workspace }}/artifact-temp -type f -name "*.deb" | head -n 1)
+          fi  
+          if [ -z "$DEB_FILE" ]; then
+            echo "Couldn't find any .deb file in the downloaded artifact! Failing..."
+            exit 1
+          fi
+          ORIGINAL_VERSION=$(dpkg-deb -f "$DEB_FILE" Version)
+          if [ -f "debians/.latest_version" ]; then
+            if [ "$ORIGINAL_VERSION" == "$(cat debians/.latest_version)" ]; then
+              echo "We already have version $ORIGINAL_VERSION! Skipping."
+              exit 0
+            fi
+          fi
+          echo "New version found, packing it up..."
+          echo "$ORIGINAL_VERSION" > debians/.latest_version
+          mkdir -p extract
+          dpkg-deb -R "$DEB_FILE" extract/
+          TIMESTAMP=$(date +"%Y%m%d%H%M%S")
+          NEW_VERSION="${ORIGINAL_VERSION}-${TIMESTAMP}"
+          sed -i -E "s/^Version: .*/Version: $NEW_VERSION/" extract/DEBIAN/control
+          NEW_DEB_NAME="com.eevee.spotify_${NEW_VERSION}_iphoneos-arm64.deb"
+          dpkg-deb -b extract/ "debians/$NEW_DEB_NAME"
+          rm -rf extract artifact-temp
+          echo "scanning packages..."
+          dpkg-scanpackages -m ./debians > Packages
+          bzip2 -c9 Packages > Packages.bz2
+          cat << 'EOF' > Release
+          Origin: Hazel's mirror repo
+          Label: Hazel's mirror repo
+          Suite: stable
+          Version: 1.0
+          Codename: ios
+          Architectures: iphoneos-arm iphoneos-arm64
+          Components: main
+          Description: meow
+          EOF
+
+      - name: Commit and push new packages
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # stage all the important repo files
+          git add debians/ Packages Packages.bz2 Release
+          
+          # check if there are actual changes before trying to push
+          if git diff --cached --quiet; then
+            echo "Nothing new to commit!"
+          else
+            git commit -m "repo: pushed eeveespotify update $(cat debians/.latest_version) [skip ci]"
+            git push
+            echo "Successfully updated the repo!"
+          fi
