@@ -65,8 +65,8 @@ jobs:
           dpkg-scanpackages -m ./debians > Packages
           bzip2 -c9 Packages > Packages.bz2
           cat << 'EOF' > Release
-          Origin: Hazel's cypwn mirror
-          Label: Hazel's cypwn mirror
+          Origin: Hazel's jb repo
+          Label: Hazel's jb repo
           Suite: stable
           Version: 1.0
           Codename: ios
