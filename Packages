@@ -846,3 +846,19 @@ Description: A tweak to get Spotify Premium for free, just like Spotilife
 Author: Eevee
 Name: EeveeSpotify
 
+Package: com.eevee.spotify
+Version: 7.0.1-20261114041359
+Architecture: iphoneos-arm64
+Maintainer: jaydenjcpy
+Installed-Size: 26448
+Depends: dev.theos.orion (>= 1.0.0), firmware (>= 16.1)
+Filename: ./debians/com.eevee.spotify_7.0.1-20261114041359_iphoneos-arm64.deb
+Size: 2870040
+MD5sum: d6c25c19414550eb2d3401ae7738ed61
+SHA1: cf12ddf61668444440f214f18b480819f79073d6
+SHA256: b35238f005fc333abded5f2efebba2472576c42fa867422f8b66f712cdb3c5de
+Section: Tweaks
+Description: A tweak to get Spotify Premium for free, just like Spotilife
+Author: Eevee
+Name: EeveeSpotify
+
